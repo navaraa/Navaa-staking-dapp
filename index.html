@@ -708,9 +708,15 @@ async function connectWallet() {
     unstakeAll
   };
 
-// Auto-connect if user previously selected a provider (Web3Modal)
-if (web3Modal && web3Modal.cachedProvider) {
-  try { await connectWallet(); } catch (e) { console.warn("auto connect failed", e); }
+// ✅ Auto-connect fix for TrustWallet & Web3Modal
+try {
+  if (window.ethereum && (window.ethereum.selectedAddress || (window.ethereum.isConnected && window.ethereum.isConnected()))) {
+    await connectWallet();
+  } else if (web3Modal && web3Modal.cachedProvider) {
+    await connectWallet();
+  }
+} catch (e) {
+  console.warn("Auto connect fail:", e);
 }
 })();
 </script>
