@@ -16,6 +16,17 @@
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 
+<!--Extra  Add.    --->
+     
+<!-- Ethers.js -->
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+
+<!-- Web3Modal v2 -->
+<script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+<script src="https://unpkg.com/web3modal@1.9.12/dist/index.js"></script>
+
+     
+
   <!-- Minimal page styling tweaks -->
   <style>
     /* keep fonts tidy on mobile */
@@ -292,66 +303,59 @@ const STAKING_ABI = [
   }
 
   // connect wallet
-  async function connectWallet() {
-    try {
-      if (!window.ethereum) throw new Error("MetaMask not found. Use MetaMask mobile in-app browser or TrustWallet/WalletConnect browser.");
-      // create provider that listens to chain/account changes properly
-      provider = new ethers.providers.Web3Provider(window.ethereum, "any");
-      // ask accounts
-      const accs = await provider.send("eth_requestAccounts", []);
-      if (!accs || !accs.length) throw new Error("No accounts available");
-      signer = provider.getSigner();
-      userAddress = await signer.getAddress();
+  // universal connect wallet
+async function connectWallet() {
+  try {
+    // 1. Provider options (WalletConnect, TrustWallet, SafePal etc.)
+    const providerOptions = {
+      walletconnect: {
+        package: window.WalletConnectProvider.default,
+        options: {
+          rpc: {
+            56: "https://bsc-dataseed.binance.org/",   // BSC Mainnet
+            97: "https://data-seed-prebsc-1-s1.binance.org:8545/" // BSC Testnet
+          },
+        },
+      },
+    };
 
-      // create contract instances with signer
-      stakingContract = new ethers.Contract(STAKING_ADDRESS, STAKING_ABI, signer);
-      tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+    // 2. Web3Modal setup
+    const web3Modal = new window.Web3Modal.default({
+      cacheProvider: false,
+      providerOptions,
+    });
 
-      // fetch decimals safely
-      try { tokenDecimals = await tokenContract.decimals(); } catch (e) { tokenDecimals = 18; }
+    // 3. Open wallet select modal
+    const instance = await web3Modal.connect();
 
-      // stakeDuration if available
-      try { stakeDuration = await stakingContract.STAKE_DURATION(); } catch (e) { stakeDuration = null; }
+    // 4. Create ethers provider + signer
+    provider = new ethers.providers.Web3Provider(instance);
+    signer   = provider.getSigner();
+    userAddress = await signer.getAddress();
 
-      connectBtn.innerText = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-      setStatus("Wallet connected");
-      setConnectedUI(true);
-      renderHistory();
+    // 5. Contract instances
+    stakingContract = new ethers.Contract(STAKING_ADDRESS, STAKING_ABI, signer);
+    tokenContract   = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
 
-      // initial load
-      await loadStakes();
-      startAutoRefresh();
-      await refreshReferralStats();
+    try { tokenDecimals = await tokenContract.decimals(); } catch { tokenDecimals = 18; }
+    try { stakeDuration = await stakingContract.STAKE_DURATION(); } catch { stakeDuration = null; }
 
-      // Listen for account / chain changes
-      if (window.ethereum && !window.ethereum._hasListeners) {
-        window.ethereum.on("accountsChanged", async (accounts) => {
-          if (!accounts || !accounts.length) {
-            // disconnected
-            setStatus("Wallet disconnected", true);
-            setConnectedUI(false);
-            connectBtn.innerText = "Connect Wallet";
-            provider = signer = userAddress = stakingContract = tokenContract = null;
-            stakesContainer.innerHTML = `<div class="text-sm text-gray-400">No stakes loaded. Connect wallet to view.</div>`;
-            return;
-          }
-          // re-connect logic
-          try { await connectWallet(); } catch(e){ console.error(e); }
-        });
-        window.ethereum.on("chainChanged", async () => {
-          // recreate provider/signer
-          setStatus("Network changed — reconnecting...");
-          try { await connectWallet(); } catch(e){ console.error(e); }
-        });
-        window.ethereum._hasListeners = true;
-      }
-    } catch (err) {
-      const msg = err && err.message ? err.message : String(err);
-      alert("Connect error: " + msg);
-      setStatus("Connect failed: " + msg, true);
-      console.error(err);
-    }
+    // 6. UI update
+    connectBtn.innerText = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+    setStatus("✅ Wallet connected");
+    setConnectedUI(true);
+    renderHistory();
+
+    await loadStakes();
+    startAutoRefresh();
+    await refreshReferralStats();
+  } catch (err) {
+    console.error("Wallet connect error:", err);
+    alert("❌ Connect failed: " + (err.message || err));
+    setStatus("Connect failed", true);
   }
+}
+
 
   // load stakes
   async function loadStakes() {
