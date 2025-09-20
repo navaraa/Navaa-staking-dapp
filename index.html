@@ -208,24 +208,30 @@ const STAKING_ABI = [
 const STAKING_ADDRESS = "0x9fd473975cecd4587d78eb71f4498dde778c4b83"; // 👈 अपना staking contract address डालो
 const TOKEN_ADDRESS   = "0x23b7a4c2ec9d742b5b1698149e812ca1e10d3e73";   // 👈 अपना token contract address डालो
 
-// Web3Modal setup
+// Web3Modal setup (robust for UMD exports)
+const Web3ModalCtor = window.Web3Modal?.default || window.Web3Modal;
+const WalletConnectProviderCtor = window.WalletConnectProvider?.default || window.WalletConnectProvider;
+
 const providerOptions = {
   walletconnect: {
-    package: window.WalletConnectProvider,
+    package: WalletConnectProviderCtor,
     options: {
-      rpc: {
-        137: "https://polygon-rpc.com" // Polygon Mainnet
-      },
+      rpc: { 137: "https://polygon-rpc.com" },
       chainId: 137
     }
   }
 };
-const web3Modal = new window.Web3Modal.default({
-  cacheProvider: true, // auto-connect if already chosen
+
+if (!Web3ModalCtor) {
+  document.getElementById("statusBox").innerText = "Error: Web3Modal not loaded.";
+  throw new Error("Web3Modal not loaded");
+}
+
+const web3Modal = new Web3ModalCtor({
+  cacheProvider: true,
   providerOptions
 });
 let extProvider;
-
 
   // Minimal token ABI for ERC20 interactions we need
   const TOKEN_ABI = [
