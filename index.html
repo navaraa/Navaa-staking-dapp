@@ -12,15 +12,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Staking DApp — Polygon</title>
 
-<!--Extra  Add.    --->
-     
 <!-- Ethers.js -->
 <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
 
-<!-- Web3Modal v2 -->
+<!-- WalletConnect -->
 <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
-<script src="https://unpkg.com/web3modal@1.9.12/dist/index.js"></script>
 
+<!-- Web3Modal -->
+<script src="https://unpkg.com/web3modal@1.9.12/dist/index.js"></script>
      
 
   <!-- Minimal page styling tweaks -->
@@ -196,15 +195,22 @@ const STAKING_ABI = [
   {"inputs":[{"internalType":"uint256[]","name":"indices","type":"uint256[]"}],"name":"withdrawPrincipal","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[],"name":"withdrawReferralRewards","outputs":[],"stateMutability":"pure","type":"function"}
 ];
+</script>
      
 <!-- ======== END PART 2 ======== -->
-
   
   <!-- Paste PART 2 (Full ABI JSON) right after this comment. -->
 
   <!-- ======== PART 3 placeholder: paste JS logic here ======== -->
-<!-- ======== PART 3 — JS Logic (paste here) ======== -->
 
+  <!-- Paste PART 3 (full JS logic using ethers.js) right before closing body tag. -->
+<div>
+  <button id="connectBtn">Connect Wallet</button>
+</div>
+     
+</body>
+<!-- ======== PART 3 — JS Logic (paste here) ======== -->
+<script>
 (async function () {
   // --- Config ---
   const STAKING_ADDRESS = "0x9fd473975cecd4587d78eb71f4498dde778c4b83";
@@ -278,7 +284,7 @@ const STAKING_ABI = [
       historyList.appendChild(li);
     });
   }
-  function pushHistory(msg) {
+     function pushHistory(msg) {
     const item = { time: new Date().toLocaleString(), msg };
     history.push(item);
     localStorage.setItem("rewardHistory", JSON.stringify(history));
@@ -351,9 +357,73 @@ async function connectWallet() {
     setStatus("Connect failed", true);
   }
 }
+         const d = Math.floor(sec / 86400);
+    sec %= 86400;
+    const h = Math.floor(sec / 3600);
+    sec %= 3600;
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    if (d) return `${d}d ${h}h`;
+    if (h) return `${h}h ${m}m`;
+    if (m) return `${m}m ${s}s`;
+    return `${s}s`;
+  }
 
+  function startAutoRefresh() {
+    if (refreshInterval) clearInterval(refreshInterval);
+    refreshInterval = setInterval(async () => {
+      try { await refreshPending(); } catch(e){ console.error(e); }
+    }, 1000);
+  }
 
-  // load stakes
+  // Guards: ensure connected
+  function ensureConnected() {
+    if (!provider || !signer || !userAddress) {
+      const msg = "Wallet not connected. Click Connect Wallet first.";
+      alert(msg);
+      setStatus(msg, true);
+      throw new Error(msg);
+    }
+  }
+
+  // stake
+  async function stakeAction() {
+    try {
+      ensureConnected();
+      setStatus("Preparing stake...");
+      const raw = stakeInput.value;
+      if (!raw || Number(raw) <= 0) { alert("Enter amount"); return; }
+      const decimals = tokenDecimals;
+      const amt = ethers.utils.parseUnits(raw.toString(), decimals);
+
+      // check allowance
+      const allowance = await tokenContract.allowance(userAddress, STAKING_ADDRESS);
+      if (allowance.lt(amt)) {
+        setStatus("Approving token...");
+        const tx = await tokenContract.approve(STAKING_ADDRESS, amt);
+        const r = await tx.wait();
+        if (!r || !r.status) {
+          throw new Error("Approve failed or was rejected");
+        }
+      }
+      // stake
+      const ref = refInput.value && ethers.utils.isAddress(refInput.value) ? refInput.value : ethers.constants.AddressZero;
+      setStatus("Staking...");
+      const tx2 = await stakingContract.stakeTokens(amt, ref);
+      const res = await tx2.wait();
+      if (!res || !res.status) throw new Error("Stake tx failed");
+      setStatus("Stake successful");
+      pushHistory(`Staked ${raw} tokens`);
+      await loadStakes();
+      await refreshReferralStats();
+    } catch (err) {
+      const m = err && err.message ? err.message : String(err);
+      alert("Stake error: " + m);
+      console.error(err);
+      setStatus("Stake failed: " + m, true);
+    }
+  }
+       // load stakes
   async function loadStakes() {
     try {
       if (!stakingContract || !userAddress) { stakesContainer.innerHTML = `<div class="text-sm text-gray-400">Connect wallet to view.</div>`; return; }
@@ -486,74 +556,7 @@ async function connectWallet() {
   function formatSeconds(sec) {
     sec = Number(sec);
     if (sec <= 0) return "Unlocked";
-    const d = Math.floor(sec / 86400);
-    sec %= 86400;
-    const h = Math.floor(sec / 3600);
-    sec %= 3600;
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    if (d) return `${d}d ${h}h`;
-    if (h) return `${h}h ${m}m`;
-    if (m) return `${m}m ${s}s`;
-    return `${s}s`;
-  }
-
-  function startAutoRefresh() {
-    if (refreshInterval) clearInterval(refreshInterval);
-    refreshInterval = setInterval(async () => {
-      try { await refreshPending(); } catch(e){ console.error(e); }
-    }, 1000);
-  }
-
-  // Guards: ensure connected
-  function ensureConnected() {
-    if (!provider || !signer || !userAddress) {
-      const msg = "Wallet not connected. Click Connect Wallet first.";
-      alert(msg);
-      setStatus(msg, true);
-      throw new Error(msg);
-    }
-  }
-
-  // stake
-  async function stakeAction() {
-    try {
-      ensureConnected();
-      setStatus("Preparing stake...");
-      const raw = stakeInput.value;
-      if (!raw || Number(raw) <= 0) { alert("Enter amount"); return; }
-      const decimals = tokenDecimals;
-      const amt = ethers.utils.parseUnits(raw.toString(), decimals);
-
-      // check allowance
-      const allowance = await tokenContract.allowance(userAddress, STAKING_ADDRESS);
-      if (allowance.lt(amt)) {
-        setStatus("Approving token...");
-        const tx = await tokenContract.approve(STAKING_ADDRESS, amt);
-        const r = await tx.wait();
-        if (!r || !r.status) {
-          throw new Error("Approve failed or was rejected");
-        }
-      }
-      // stake
-      const ref = refInput.value && ethers.utils.isAddress(refInput.value) ? refInput.value : ethers.constants.AddressZero;
-      setStatus("Staking...");
-      const tx2 = await stakingContract.stakeTokens(amt, ref);
-      const res = await tx2.wait();
-      if (!res || !res.status) throw new Error("Stake tx failed");
-      setStatus("Stake successful");
-      pushHistory(`Staked ${raw} tokens`);
-      await loadStakes();
-      await refreshReferralStats();
-    } catch (err) {
-      const m = err && err.message ? err.message : String(err);
-      alert("Stake error: " + m);
-      console.error(err);
-      setStatus("Stake failed: " + m, true);
-    }
-  }
-
-  // claim indices
+           // claim indices
   async function claimIndices(indices) {
     try {
       ensureConnected();
@@ -684,10 +687,5 @@ async function connectWallet() {
 
           
 <!-- ======== END PART 3 ======== -->
-
-
-  
-  <!-- Paste PART 3 (full JS logic using ethers.js) right before closing body tag. -->
-
-</body>
+           
 </html>
