@@ -348,11 +348,37 @@ let extProvider;
     startAutoRefresh();
     await refreshReferralStats();
 
-    // disconnect listener
+    // provider event handlers (works for MetaMask & WalletConnect)
+if (extProvider && extProvider.on) {
+  try {
     extProvider.on("disconnect", () => {
       setStatus("Disconnected");
       connectBtn.innerText = "Connect Wallet";
+      if (refreshInterval) clearInterval(refreshInterval);
     });
+  } catch(e){/* ignore */ }
+
+  // EIP-1193 style events (MetaMask / modern providers)
+  if (extProvider.on) {
+    extProvider.on("accountsChanged", async (accounts) => {
+      if (!accounts || accounts.length === 0) {
+        setStatus("Disconnected");
+        connectBtn.innerText = "Connect Wallet";
+        if (refreshInterval) clearInterval(refreshInterval);
+      } else {
+        userAddress = accounts[0];
+        connectBtn.innerText = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+        await loadStakes();
+        await refreshReferralStats();
+      }
+    });
+    extProvider.on("chainChanged", (chainId) => {
+      // force reload so provider/network specifics re-init
+      console.log("chainChanged -> reload", chainId);
+      window.location.reload();
+    });
+  }
+}
 
   } catch (err) {
     alert("Connect error: " + (err.message || err));
