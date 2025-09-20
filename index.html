@@ -12,10 +12,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Staking DApp — Polygon</title>
 
-  <!-- ethers.js + tailwind -->
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-
 <!--Extra  Add.    --->
      
 <!-- Ethers.js -->
@@ -200,7 +196,7 @@ const STAKING_ABI = [
   {"inputs":[{"internalType":"uint256[]","name":"indices","type":"uint256[]"}],"name":"withdrawPrincipal","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[],"name":"withdrawReferralRewards","outputs":[],"stateMutability":"pure","type":"function"}
 ];
-</script>
+     
 <!-- ======== END PART 2 ======== -->
 
   
@@ -208,7 +204,7 @@ const STAKING_ABI = [
 
   <!-- ======== PART 3 placeholder: paste JS logic here ======== -->
 <!-- ======== PART 3 — JS Logic (paste here) ======== -->
-<script>
+
 (async function () {
   // --- Config ---
   const STAKING_ADDRESS = "0x9fd473975cecd4587d78eb71f4498dde778c4b83";
