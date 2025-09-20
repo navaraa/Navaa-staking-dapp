@@ -314,36 +314,48 @@ let extProvider;
 
   // connect wallet
   async function connectWallet() {
-    try {
-      if (!window.ethereum) throw new Error("MetaMask not found. Use MetaMask mobile in-app browser or WalletConnect-capable browser.");
-      await window.ethereum.request({ method: "eth_requestAccounts" });
-      provider = new ethers.providers.Web3Provider(window.ethereum);
-      signer = provider.getSigner();
-      userAddress = await signer.getAddress();
-         // 👇 Polygon network check
-const network = await provider.getNetwork();
-if (network.chainId !== 137) {
-  alert("Please switch MetaMask to Polygon Mainnet");
-  return;
-}    
-      stakingContract = new ethers.Contract(STAKING_ADDRESS, STAKING_ABI, signer);
-      tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+  try {
+    // open modal
+    extProvider = await web3Modal.connect();
+    provider = new ethers.providers.Web3Provider(extProvider);
+    signer = provider.getSigner();
+    userAddress = await signer.getAddress();
 
-      // fetch decimals
-      try { tokenDecimals = await tokenContract.decimals(); } catch (e) { tokenDecimals = 18; }
+    // polygon check
+    const network = await provider.getNetwork();
+    if (network.chainId !== 137) {
+      alert("Please switch to Polygon Mainnet");
+      return;
+    }
 
-      // fetch stakeDuration if present
-      try { stakeDuration = await stakingContract.STAKE_DURATION(); } catch (e) { stakeDuration = null; }
+    stakingContract = new ethers.Contract(STAKING_ADDRESS, STAKING_ABI, signer);
+    tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
 
-      connectBtn.innerText = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-      setStatus("Wallet connected");
-      renderHistory();
+    try { tokenDecimals = await tokenContract.decimals(); } catch(e) { tokenDecimals = 18; }
+    try { stakeDuration = await stakingContract.STAKE_DURATION(); } catch(e) { stakeDuration = null; }
 
-      // initial load
-      await loadStakes();
-      startAutoRefresh();
-      await refreshReferralStats();
-    } catch (err) {
+    connectBtn.innerText = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+    setStatus("Wallet connected");
+
+    renderHistory();
+    await loadStakes();
+    startAutoRefresh();
+    await refreshReferralStats();
+
+    // disconnect listener
+    extProvider.on("disconnect", () => {
+      setStatus("Disconnected");
+      connectBtn.innerText = "Connect Wallet";
+    });
+
+  } catch (err) {
+    alert("Connect error: " + (err.message || err));
+    console.error(err);
+  }
+}
+
+    
+    catch (err) {
       alert("Connect error: " + (err.message || err));
       console.error(err);
     }
