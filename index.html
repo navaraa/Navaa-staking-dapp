@@ -296,6 +296,12 @@ const STAKING_ABI = [
       provider = new ethers.providers.Web3Provider(window.ethereum);
       signer = provider.getSigner();
       userAddress = await signer.getAddress();
+         // 👇 Polygon network check
+const network = await provider.getNetwork();
+if (network.chainId !== 137) {
+  alert("Please switch MetaMask to Polygon Mainnet");
+  return;
+}    
       stakingContract = new ethers.Contract(STAKING_ADDRESS, STAKING_ABI, signer);
       tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
 
