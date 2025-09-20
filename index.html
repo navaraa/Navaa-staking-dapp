@@ -679,10 +679,10 @@ if (extProvider && extProvider.on) {
     unstakeAll
   };
 
-  // If already connected (MetaMask persists), try connect automatically
-  if (window.ethereum && window.ethereum.selectedAddress) {
-    try { await connectWallet(); } catch(e){ /* ignore */ }
-  }
+// Auto-connect if user previously selected a provider (Web3Modal)
+if (web3Modal && web3Modal.cachedProvider) {
+  try { await connectWallet(); } catch (e) { console.warn("auto connect failed", e); }
+}
 })();
 </script>
 <!-- ======== END PART 3 ======== -->
