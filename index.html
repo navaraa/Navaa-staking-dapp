@@ -319,72 +319,101 @@ let extProvider;
   }
 
   // connect wallet
-  async function connectWallet() {
+  // ✅ NEW connectWallet function
+async function connectWallet() {
   try {
-    // open modal
-    extProvider = await web3Modal.connect();
+    setStatus("Connecting...");
+
+    // --- STEP A: TrustWallet / MetaMask mobile injected provider ---
+    if (window.ethereum) {
+      setStatus("Wallet mila, request bhej raha hu...");
+      extProvider = window.ethereum;
+
+      try {
+        if (typeof extProvider.request === "function") {
+          await extProvider.request({ method: "eth_requestAccounts" });
+        } else if (typeof extProvider.enable === "function") {
+          await extProvider.enable();
+        } else {
+          throw new Error("Wallet ne account request allow nahi kiya");
+        }
+      } catch (err) {
+        console.warn("Direct request fail:", err);
+        if (!web3Modal) {
+          alert("❌ Wallet connect cancel ya error.");
+          setStatus("Connect cancelled");
+          return;
+        } else {
+          setStatus("Web3Modal khol raha hu...");
+          extProvider = await web3Modal.connect();
+        }
+      }
+    } else {
+      // --- STEP B: Agar wallet inject hi nahi hua to Web3Modal use karo ---
+      setStatus("Wallet choose karne ka option khul raha hai...");
+      extProvider = await web3Modal.connect();
+    }
+
+    // --- Common setup ---
     provider = new ethers.providers.Web3Provider(extProvider);
     signer = provider.getSigner();
     userAddress = await signer.getAddress();
 
-    // polygon check
-    const network = await provider.getNetwork();
+    // network check
+    let network = await provider.getNetwork();
     if (network.chainId !== 137) {
-      alert("Please switch to Polygon Mainnet");
+      alert("⚠️ Apna wallet Polygon mainnet par le jao (chainId 137)");
+      setStatus("Galat network");
       return;
     }
 
+    // contracts set karo
     stakingContract = new ethers.Contract(STAKING_ADDRESS, STAKING_ABI, signer);
     tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
 
     try { tokenDecimals = await tokenContract.decimals(); } catch(e) { tokenDecimals = 18; }
     try { stakeDuration = await stakingContract.STAKE_DURATION(); } catch(e) { stakeDuration = null; }
 
+    // UI update
     connectBtn.innerText = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-    setStatus("Wallet connected");
+    setStatus("✅ Wallet connect ho gaya");
 
+    // data load karo
     renderHistory();
     await loadStakes();
     startAutoRefresh();
     await refreshReferralStats();
 
-    // provider event handlers (works for MetaMask & WalletConnect)
-if (extProvider && extProvider.on) {
-  try {
-    extProvider.on("disconnect", () => {
+    // events handle karo
+    function handleDisconnect() {
       setStatus("Disconnected");
       connectBtn.innerText = "Connect Wallet";
       if (refreshInterval) clearInterval(refreshInterval);
-    });
-  } catch(e){/* ignore */ }
-
-  // EIP-1193 style events (MetaMask / modern providers)
-  if (extProvider.on) {
-    extProvider.on("accountsChanged", async (accounts) => {
+    }
+    function handleAccountsChanged(accounts) {
       if (!accounts || accounts.length === 0) {
-        setStatus("Disconnected");
-        connectBtn.innerText = "Connect Wallet";
-        if (refreshInterval) clearInterval(refreshInterval);
+        handleDisconnect();
       } else {
         userAddress = accounts[0];
         connectBtn.innerText = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-        await loadStakes();
-        await refreshReferralStats();
+        loadStakes();
+        refreshReferralStats();
       }
-    });
-    extProvider.on("chainChanged", (chainId) => {
-      // force reload so provider/network specifics re-init
-      console.log("chainChanged -> reload", chainId);
-      window.location.reload();
-    });
+    }
+
+    if (extProvider && typeof extProvider.on === "function") {
+      extProvider.on("disconnect", handleDisconnect);
+      extProvider.on("accountsChanged", handleAccountsChanged);
+      extProvider.on("chainChanged", () => window.location.reload());
+    }
+
+  } catch (err) {
+    alert("❌ Connect error: " + err.message);
+    setStatus("Connect failed");
+    console.error("connectWallet() error:", err);
   }
 }
 
-  } catch (err) {
-    alert("Connect error: " + (err.message || err));
-    console.error(err);
-  }
-}
   // load all stakes for user
   async function loadStakes() {
     try {
