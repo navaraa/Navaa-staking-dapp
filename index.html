@@ -538,6 +538,16 @@ body {
 
 <div id="stakeCards"></div>  <!---- USERS STAKE CARD -------->
 
+  <!----hidden card ------->
+  <div id="referralForm" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#111; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10000;">
+  <h2>Enter Referrer Address</h2>
+  <input type="text" id="referrerInput" placeholder="Referrer wallet address" style="padding:10px; width:80%; margin:10px; border-radius:8px;"/>
+  <input type="number" id="firstStakeAmount" placeholder="Enter stake amount (min 170000)" style="padding:10px; width:80%; margin:10px; border-radius:8px;"/>
+  <button onclick="stakeWithReferral()" class="btn" style="margin-top:15px;">Stake with Referral</button>
+  </div>
+
+  <!------------------------>
+
   <div class="bottom-menu">
     <div class="menu-item" onclick="openStake()"><i class="fas fa-coins"></i><span>Stake Now</span></div> 
     <div class="menu-item" onclick="openRefer()"><i class="fas fa-user-friends"></i><span>Refer</span></div>
@@ -609,8 +619,19 @@ async function connectWallet() {
 
 async function loadInfo() {
   try {
-    const count = await contract.stakeCount(userAddress);
-    document.getElementById("stakeCount").innerText = count.toString();
+   /* const count = await contract.stakeCount(userAddress);
+    document.getElementById("stakeCount").innerText = count.toString(); */
+    // extra for log/signup
+const count = await contract.stakeCount(userAddress);
+document.getElementById("stakeCount").innerText = count.toString();
+
+// Agar stake nahi hai → Referral form dikhana hai
+if (count.toNumber() === 0) {
+    showReferralForm();
+    return; // Dashboard ke stake cards load mat karo
+}
+//////////////////////////
+    
     const stakeCardsContainer = document.getElementById("stakeCards");
     stakeCardsContainer.innerHTML = "";
     const STAKE_DURATION = 1700 * 24 * 60 * 60;
@@ -742,6 +763,55 @@ function openRefer(){ alert("Refer & Earn clicked!"); }
 function openSwap(){ alert("Swap clicked!");}
 function openTerms(){ alert("T&C clicked!");}
 // function openHistory(){ alert("Claim/Withdrawal History clicked!"); }
+
+  // Log in aur signup form and stake
+  function showReferralForm() {
+  document.getElementById("referralForm").style.display = "flex";
+  document.querySelector(".main-content").style.display = "none";
+  document.getElementById("stakeCards").style.display = "none";
+}
+
+async function stakeWithReferral() {
+  try {
+    const referrer = document.getElementById("referrerInput").value.trim();
+    const amountInput = document.getElementById("firstStakeAmount").value;
+
+    if (!ethers.utils.isAddress(referrer)) {
+      alert("❌ Enter valid referrer address");
+      return;
+    }
+    if (!amountInput || parseFloat(amountInput) < 170000) {
+      alert("❌ Minimum 170000 Navaa required");
+      return;
+    }
+
+    const amount = ethers.utils.parseUnits(amountInput.toString(), 18);
+    const tokenContract = new ethers.Contract(NAVAA_TOKEN, TOKEN_ABI, signer);
+
+    const balance = await tokenContract.balanceOf(userAddress);
+    if (balance.lt(amount)) {
+      alert("Not enough balance!");
+      return;
+    }
+
+    const approveTx = await tokenContract.approve(CONTRACT_ADDRESS, amount);
+    await approveTx.wait();
+
+    const tx = await contract.stakeTokens(amount, referrer);
+    await tx.wait();
+
+    alert("✅ First stake successful with referral!");
+    document.getElementById("referralForm").style.display = "none";
+    document.querySelector(".main-content").style.display = "flex";
+    document.getElementById("stakeCards").style.display = "block";
+    loadInfo();
+    loadBalances();
+  } catch (err) {
+    console.error(err);
+    alert("Stake failed: " + (err?.reason || err?.message));
+  }
+}
+
 </script>
 </body>
 </html>
