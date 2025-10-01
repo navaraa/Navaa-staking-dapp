@@ -10,6 +10,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
 
   <style>
+/* ===========================
+   YOUR ORIGINAL CSS (UNCHANGED)
+   =========================== */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
 *{
   margin:0;
@@ -538,16 +541,6 @@ body {
 
 <div id="stakeCards"></div>  <!---- USERS STAKE CARD -------->
 
-  <!----hidden card ------->
-  <div id="referralForm" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#111; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10000;">
-  <h2>Enter Referrer Address</h2>
-  <input type="text" id="referrerInput" placeholder="Referrer wallet address" style="padding:10px; width:80%; margin:10px; border-radius:8px;"/>
-  <input type="number" id="firstStakeAmount" placeholder="Enter stake amount (min 170000)" style="padding:10px; width:80%; margin:10px; border-radius:8px;"/>
-  <button onclick="stakeWithReferral()" class="btn" style="margin-top:15px;">Stake with Referral</button>
-  </div>
-
-  <!------------------------>
-
   <div class="bottom-menu">
     <div class="menu-item" onclick="openStake()"><i class="fas fa-coins"></i><span>Stake Now</span></div> 
     <div class="menu-item" onclick="openRefer()"><i class="fas fa-user-friends"></i><span>Refer</span></div>
@@ -569,72 +562,120 @@ body {
     </div>
   </div>
   </div>
-  
 
+  <!-- Referral form modal (NEW) -->
+  <div id="referralForm" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; z-index:9999;">
+    <div style="background:#1e1e2f; padding:22px; border-radius:12px; max-width:420px; width:92%; color:#fff; text-align:center;">
+      <h3>Stake with Referrer</h3>
+      <p style="color:#ccc; font-size:14px;">Enter referrer address (or will be prefilled if you opened the page with ?ref=0x...)</p>
+      <input id="referrerInput" type="text" placeholder="0xReferrerAddress" style="width:100%; padding:10px; border-radius:8px; margin:10px 0; border:1px solid #444;" />
+      <input id="firstStakeAmount" type="number" placeholder="Enter amount (min 170000)" style="width:100%; padding:10px; border-radius:8px; margin-bottom:10px; border:1px solid #444;" />
+      <div style="display:flex; gap:10px;">
+        <button onclick="stakeWithReferral()" class="btn" style="flex:1;">Stake Now</button>
+        <button onclick="document.getElementById('referralForm').style.display='none';" class="danger" style="flex:1;">Cancel</button>
+      </div>
+    </div>
+  </div>
+  
 <script>
+// =====================
+// CONFIG - replace these with your real addresses / full ABI if you want
+// =====================
 const CONTRACT_ADDRESS = "0x9fd473975cecd4587d78eb71f4498dde778c4b83";
 const NAVAA_TOKEN = "0x23b7a4c2ec9d742b5b1698149e812ca1e10d3e73";
 
+// Token ABI (balanceOf, decimals, approve, allowance)
 const TOKEN_ABI = [
   "function balanceOf(address account) view returns (uint256)",
   "function decimals() view returns (uint8)",
-  "function approve(address spender, uint256 amount) returns (bool)"
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function allowance(address owner, address spender) view returns (uint256)"
 ];
 
+// Contract ABI (only necessary functions; replace with full ABI if you prefer)
 const ABI = [
   "function stakeCount(address user) view returns (uint256)",
   "function pendingRewardForStake(address user, uint256 index) view returns (uint256)",
   "function getStake(address user, uint256 index) view returns (uint256 amount, uint256 startTime, uint256 claimed, bool principalWithdrawn, uint256 totalReward)",
   "function stakeTokens(uint256 amount, address referrer)",
   "function claimStakingRewards(uint256[] calldata indices)",
-  "function withdrawPrincipal(uint256[] calldata indices)"
+  "function withdrawPrincipal(uint256[] calldata indices)",
+  "function isReferrerEligible(address addr) view returns (bool)"
 ];
 
 let provider, signer, contract, userAddress;
 
+// ---------- Wallet connect (button) ----------
 async function connectWallet() {
-  if (window.ethereum) {
-    provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
-    const network = await provider.getNetwork();
-    if (network.chainId !== 137) { alert("Switch to Polygon Mainnet"); return; }
-  } else {
-    const wcProvider = new WalletConnectProvider.default({ rpc: { 137: "https://polygon-rpc.com" } });
-    await wcProvider.enable();
-    provider = new ethers.providers.Web3Provider(wcProvider);
-    const network = await provider.getNetwork();
-    if (network.chainId !== 137) { alert("Switch to Polygon Mainnet"); return; }
+  try {
+    if (window.ethereum) {
+      provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      const network = await provider.getNetwork();
+      if (network.chainId !== 137) { alert("Switch to Polygon Mainnet"); return; }
+    } else {
+      const wcProvider = new WalletConnectProvider.default({ rpc: { 137: "https://polygon-rpc.com" } });
+      await wcProvider.enable();
+      provider = new ethers.providers.Web3Provider(wcProvider);
+      const network = await provider.getNetwork();
+      if (network.chainId !== 137) { alert("Switch to Polygon Mainnet"); return; }
+    }
+
+    signer = provider.getSigner();
+    userAddress = await signer.getAddress();
+    document.getElementById("wallet").innerText = userAddress;
+    const connectBtn = document.getElementById("connectButton");
+    connectBtn.innerText = "Connected";
+    connectBtn.disabled = true;
+    connectBtn.style.background = "#2e7d32";
+
+    contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+    // After connecting, run flow
+    await loadInfo();
+    await loadBalances();
+  } catch (err) {
+    console.error("connectWallet error:", err);
+    alert("Wallet connection failed: " + (err?.message || err));
   }
-  signer = provider.getSigner();
-  userAddress = await signer.getAddress();
-  document.getElementById("wallet").innerText = userAddress;
-  const connectBtn = document.getElementById("connectButton");
-  connectBtn.innerText = "Connected";
-  connectBtn.disabled = true;
-  connectBtn.style.background = "#2e7d32";
-  contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-  loadInfo();
-  await loadBalances();
 }
 
+// ---------- Load user info and stakes ----------
 async function loadInfo() {
   try {
-   /* const count = await contract.stakeCount(userAddress);
-    document.getElementById("stakeCount").innerText = count.toString(); */
-    // extra for log/signup
-const count = await contract.stakeCount(userAddress);
-document.getElementById("stakeCount").innerText = count.toString();
+    if (!contract || !userAddress) return;
 
-// Agar stake nahi hai → Referral form dikhana hai
-if (count.toNumber() === 0) {
-    showReferralForm();
-    return; // Dashboard ke stake cards load mat karo
-}
-//////////////////////////
-    
+    const countBN = await contract.stakeCount(userAddress);
+    const count = (countBN.toNumber) ? countBN.toNumber() : Number(countBN);
+    document.getElementById("stakeCount").innerText = count.toString();
+
+    // If user has zero stakes -> show referral form only (hide dashboard)
+    if (count === 0) {
+      // hide main dashboard elements
+      const mainContent = document.querySelector(".main-content");
+      const totalStake = document.querySelector(".total-stake");
+      const stakeCards = document.getElementById("stakeCards");
+      if (mainContent) mainContent.style.display = "none";
+      if (totalStake) totalStake.style.display = "none";
+      if (stakeCards) stakeCards.style.display = "none";
+
+      // show referral form (prefill if url has ?ref=)
+      showReferralFormIfNeeded();
+      return;
+    }
+
+    // User has stakes -> show dashboard and hide referral if present
+    document.querySelector(".main-content").style.display = "flex";
+    document.querySelector(".total-stake").style.display = "flex";
+    document.getElementById("stakeCards").style.display = "block";
+    const refModal = document.getElementById('referralForm');
+    if (refModal) refModal.style.display = 'none';
+
+    // Render stake cards (existing style)
     const stakeCardsContainer = document.getElementById("stakeCards");
     stakeCardsContainer.innerHTML = "";
     const STAKE_DURATION = 1700 * 24 * 60 * 60;
+
     for (let i = 0; i < count; i++) {
       const pending = await contract.pendingRewardForStake(userAddress, i);
       const stakeInfo = await contract.getStake(userAddress, i);
@@ -657,51 +698,78 @@ if (count.toNumber() === 0) {
         <p><b>End Date:</b> <span id="end-${i}">${endTime.toLocaleString()}</span></p>
       `;
       stakeCardsContainer.appendChild(card);
+
       let pendingLive = parseFloat(ethers.utils.formatEther(pending));
       const totalRewardNum = parseFloat(ethers.utils.formatEther(totalReward));
       const rewardRatePerSecond = totalRewardNum / STAKE_DURATION;
-      setInterval(() => { pendingLive += rewardRatePerSecond; document.getElementById(`pending-${i}`).innerText = pendingLive.toFixed(6); }, 1000);
-      document.querySelectorAll(".claimBtn").forEach(btn => { btn.onclick = () => claimReward(btn.dataset.index); });
-      document.querySelectorAll(".withdrawBtn").forEach(btn => { btn.onclick = () => withdrawPrincipal(btn.dataset.index); });
+      // update pending every second
+      setInterval(() => {
+        const el = document.getElementById(`pending-${i}`);
+        if (el) {
+          pendingLive += rewardRatePerSecond;
+          el.innerText = pendingLive.toFixed(6);
+        }
+      }, 1000);
     }
-  } catch(err){ console.error(err); alert("Error loading info: " + err.message);}
+
+    // attach handlers
+    document.querySelectorAll(".claimBtn").forEach(btn => { btn.onclick = () => claimReward(btn.dataset.index); });
+    document.querySelectorAll(".withdrawBtn").forEach(btn => { btn.onclick = () => withdrawPrincipal(btn.dataset.index); });
+
+  } catch(err){ console.error("loadInfo error:", err); alert("Error loading info: " + (err?.message || err));}
 }
 
-  async function loadBalances() {
-  if (!provider || !userAddress) return;
-  const polBalance = await provider.getBalance(userAddress);
-  const polFormatted = ethers.utils.formatEther(polBalance);
-  const navaaContract = new ethers.Contract(NAVAA_TOKEN, TOKEN_ABI, provider);
-  const navaaBalance = await navaaContract.balanceOf(userAddress);
-  const navaaDecimals = await navaaContract.decimals();
-  const navaaFormatted = ethers.utils.formatUnits(navaaBalance, navaaDecimals);
-  document.getElementById("walletBalances").innerHTML = `
-    <div class="token-balance">
-      <img src="POL.png" alt="MATIC">${parseFloat(polFormatted).toFixed(4)} POL
-    </div>
-    <div class="token-balance">
-      <img src="logo.png" alt="Navaa">${parseFloat(navaaFormatted).toFixed(4)} Navaa
-    </div>
-  `;
-  document.getElementById("wallet").innerText = userAddress;
-  }
+// ---------- Balances ----------
+async function loadBalances() {
+  try {
+    if (!provider || !userAddress) return;
+    const polBalance = await provider.getBalance(userAddress);
+    const polFormatted = ethers.utils.formatEther(polBalance);
+    const navaaContract = new ethers.Contract(NAVAA_TOKEN, TOKEN_ABI, provider);
+    const navaaBalance = await navaaContract.balanceOf(userAddress);
+    const navaaDecimals = await navaaContract.decimals();
+    const navaaFormatted = ethers.utils.formatUnits(navaaBalance, navaaDecimals);
+    document.getElementById("walletBalances").innerHTML = `
+      <div class="token-balance">
+        <img src="POL.png" alt="MATIC">${parseFloat(polFormatted).toFixed(4)} POL
+      </div>
+      <div class="token-balance">
+        <img src="logo.png" alt="Navaa">${parseFloat(navaaFormatted).toFixed(4)} Navaa
+      </div>
+    `;
+    document.getElementById("wallet").innerText = userAddress;
+  } catch(err){ console.error("loadBalances error:", err); }
+}
 
+// ---------- Claim & Withdraw ----------
 async function claimReward(index) {
-  try { const tx = await contract.claimStakingRewards([index]); alert("Claiming stake #" + index + " ... Tx: " + tx.hash); await tx.wait(); alert("Reward claimed for stake #" + index); loadInfo(); }
-  catch(err){ console.error(err); alert("Claim failed: " + (err?.reason || err?.message || "Unknown error"));}
+  try {
+    const tx = await contract.claimStakingRewards([index]);
+    alert("Claiming stake #" + index + " ... Tx: " + tx.hash);
+    await tx.wait();
+    alert("Reward claimed for stake #" + index);
+    await loadInfo();
+  } catch(err){ console.error(err); alert("Claim failed: " + (err?.reason || err?.message || "Unknown error"));}
 }
 
 async function withdrawPrincipal(index) {
-  try { const tx = await contract.withdrawPrincipal([index]); alert("Withdrawing stake #" + index + " ... Tx: " + tx.hash); await tx.wait(); alert("Principal withdrawn for stake #" + index); loadInfo(); }
-  catch(err){ console.error(err); alert("Withdraw failed: " + (err?.reason || err?.message || "Unknown error"));}
+  try {
+    const tx = await contract.withdrawPrincipal([index]);
+    alert("Withdrawing stake #" + index + " ... Tx: " + tx.hash);
+    await tx.wait();
+    alert("Principal withdrawn for stake #" + index);
+    await loadInfo();
+  } catch(err){ console.error(err); alert("Withdraw failed: " + (err?.reason || err?.message || "Unknown error"));}
 }
 
+// ---------- Connect button binding ----------
 document.getElementById("connectButton").onclick = connectWallet;
 
+// ---------- Basic stake modal (kept intact) ----------
 function openStake(){ document.getElementById("stakeModal").style.display="flex"; }
 function closeStake(){ document.getElementById("stakeModal").style.display="none"; }
-///////////////////////////////////////
 
+// stakeNow (keep same validation + flow)
 const MIN_STAKE = ethers.utils.parseUnits("170000", 18);     // 170000 Navaa
 const MAX_STAKE = ethers.utils.parseUnits("10000000", 18);   // 10000000 Navaa
 
@@ -716,26 +784,16 @@ async function stakeNow() {
 
     const amount = ethers.utils.parseUnits(amountInput.toString(), 18);
 
-    // ✅ Min/Max Validation
-    if (amount.lt(MIN_STAKE)) {
-      alert("❌ Minimum stake is 170000 Navaa");
-      return;
-    }
-    if (amount.gt(MAX_STAKE)) {
-      alert("❌ Maximum stake is 10000000 Navaa");
-      return;
-    }
+    // Min/Max Validation
+    if (amount.lt(MIN_STAKE)) { alert("❌ Minimum stake is 170000 Navaa"); return; }
+    if (amount.gt(MAX_STAKE)) { alert("❌ Maximum stake is 10000000 Navaa"); return; }
 
-    // ✅ Balance Check
+    // Balance Check
     const tokenContract = new ethers.Contract(NAVAA_TOKEN, TOKEN_ABI, signer);
     const balance = await tokenContract.balanceOf(userAddress);
+    if (balance.lt(amount)) { alert("❌ You don’t have enough Navaa tokens to stake!"); return; }
 
-    if (balance.lt(amount)) {
-      alert("❌ You don’t have enough Navaa tokens to stake!");
-      return; // 🚨 Stop here → no approve, no gas waste
-    }
-
-    // ✅ Only if balance is enough → Approve & Stake
+    // Approve & Stake
     const approveTx = await tokenContract.approve(CONTRACT_ADDRESS, amount);
     alert("Approving tokens... Tx: " + approveTx.hash);
     await approveTx.wait();
@@ -746,29 +804,29 @@ async function stakeNow() {
 
     alert("✅ Stake successful!");
     closeStake();
-    loadInfo();
-    loadBalances();
+    await loadInfo();
+    await loadBalances();
 
   } catch (err) {
     console.error(err);
     alert("Stake failed: " + (err?.reason || err?.message || "Unknown error"));
   }
 }
-///////////// History 
-  function openHistory() {
-  window.location.href = "history.html"; // ye naya page open karega
-}
-  
-function openRefer(){ alert("Refer & Earn clicked!"); }
-function openSwap(){ alert("Swap clicked!");}
-function openTerms(){ alert("T&C clicked!");}
-// function openHistory(){ alert("Claim/Withdrawal History clicked!"); }
 
-  // Log in aur signup form and stake
-  function showReferralForm() {
-  document.getElementById("referralForm").style.display = "flex";
-  document.querySelector(".main-content").style.display = "none";
-  document.getElementById("stakeCards").style.display = "none";
+// ---------- Referral flow (new user) ----------
+function showReferralFormIfNeeded() {
+  const params = new URLSearchParams(window.location.search);
+  const refFromUrl = params.get('ref');
+  const refInputEl = document.getElementById('referrerInput');
+  if (refInputEl) {
+    if (refFromUrl && ethers.utils.isAddress(refFromUrl)) {
+      refInputEl.value = ethers.utils.getAddress(refFromUrl);
+    } else {
+      refInputEl.value = "";
+    }
+  }
+  const modal = document.getElementById('referralForm');
+  if (modal) modal.style.display = 'flex';
 }
 
 async function stakeWithReferral() {
@@ -777,41 +835,98 @@ async function stakeWithReferral() {
     const amountInput = document.getElementById("firstStakeAmount").value;
 
     if (!ethers.utils.isAddress(referrer)) {
-      alert("❌ Enter valid referrer address");
+      alert("Enter a valid referrer address");
       return;
     }
-    if (!amountInput || parseFloat(amountInput) < 170000) {
-      alert("❌ Minimum 170000 Navaa required");
+    if (!amountInput || isNaN(amountInput) || parseFloat(amountInput) < 170000) {
+      alert("Enter valid amount (min 170000)");
       return;
     }
 
     const amount = ethers.utils.parseUnits(amountInput.toString(), 18);
     const tokenContract = new ethers.Contract(NAVAA_TOKEN, TOKEN_ABI, signer);
 
+    // check balance
     const balance = await tokenContract.balanceOf(userAddress);
     if (balance.lt(amount)) {
-      alert("Not enough balance!");
+      alert("Not enough Navaa balance");
       return;
     }
 
-    const approveTx = await tokenContract.approve(CONTRACT_ADDRESS, amount);
-    await approveTx.wait();
+    // check referrer eligibility on-chain (if function exists)
+    try {
+      if (typeof contract.isReferrerEligible === 'function') {
+        const eligible = await contract.isReferrerEligible(referrer);
+        if (!eligible) {
+          const ok = confirm("Referrer not eligible on-chain. Continue staking anyway?");
+          if (!ok) return;
+        }
+      }
+    } catch(e) {
+      // ignore validation errors (optional)
+      console.warn("isReferrerEligible check failed:", e);
+    }
 
+    // approve if needed
+    const allowance = await tokenContract.allowance(userAddress, CONTRACT_ADDRESS);
+    if (allowance.lt(amount)) {
+      const approveTx = await tokenContract.approve(CONTRACT_ADDRESS, amount);
+      alert("Approving tokens... Tx: " + approveTx.hash);
+      await approveTx.wait();
+    }
+
+    // stake with ref
     const tx = await contract.stakeTokens(amount, referrer);
+    alert("Staking... Tx: " + tx.hash);
     await tx.wait();
+    alert("Stake successful!");
 
-    alert("✅ First stake successful with referral!");
-    document.getElementById("referralForm").style.display = "none";
+    // hide modal and show dashboard
+    const modal = document.getElementById('referralForm');
+    if (modal) modal.style.display = 'none';
     document.querySelector(".main-content").style.display = "flex";
+    document.querySelector(".total-stake").style.display = "flex";
     document.getElementById("stakeCards").style.display = "block";
-    loadInfo();
-    loadBalances();
+
+    // refresh
+    await loadInfo();
+    await loadBalances();
   } catch (err) {
-    console.error(err);
-    alert("Stake failed: " + (err?.reason || err?.message));
+    console.error("stakeWithReferral error:", err);
+    alert("Stake failed: " + (err?.reason || err?.message || err));
   }
 }
 
+// ---------- History / Refer / Swap / Terms handlers ----------
+function openHistory() { window.location.href = "history.html"; }
+function openRefer() { window.location.href = "refer.html"; }
+function openSwap() { alert("Swap clicked!"); }
+function openTerms() { alert("T&C clicked!"); }
+
+// ---------- Auto-init if user already connected earlier ----------
+window.addEventListener('load', async () => {
+  try {
+    if (window.ethereum) {
+      provider = new ethers.providers.Web3Provider(window.ethereum);
+      const accounts = await provider.listAccounts();
+      if (accounts && accounts.length > 0) {
+        signer = provider.getSigner();
+        userAddress = await signer.getAddress();
+        document.getElementById("wallet").innerText = userAddress;
+        const connectBtn = document.getElementById("connectButton");
+        connectBtn.innerText = "Connected";
+        connectBtn.disabled = true;
+        connectBtn.style.background = "#2e7d32";
+        contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+        // run flow: if stakeCount==0 -> referral form else dashboard
+        await loadInfo();
+        await loadBalances();
+      }
+    }
+  } catch (e) {
+    console.error("auto-init error", e);
+  }
+});
 </script>
 </body>
 </html>
