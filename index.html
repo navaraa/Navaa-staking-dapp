@@ -1,150 +1,747 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Navaraa Staking UI</title>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+<title>Navaraa Staking UI</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+
   <style>
-    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:20px; }
-    .card { background:#fff; padding:20px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1); max-width:600px; margin:auto; }
-    button { padding:10px 16px; margin:6px 0; border:none; border-radius:8px; cursor:pointer; }
-    .btn { background:#4CAF50; color:#fff; }
-    .btn:hover { background:#45a049; }
-    .danger { background:#e53935; color:#fff; }
-    .danger:hover { background:#d32f2f; }
-    input { padding:8px; width:90%; margin:5px 0; }
-  </style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  text-decoration:none;
+  border:none;
+  outline:none;
+  scroll-behavior:smooth;
+}
+    
+body {
+  font-family: 'Poppins', sans-serif; 
+  background:#f5f5f5;
+}
+    /*-----------Section 1 : header--------------*/
+.header { 
+  background: rgba(255, 255, 255, 0.15); /* transparent white */
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  padding: 0.8rem 6%; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+/* Logo */
+.logo-img { 
+  height: 55px;
+  width: auto; 
+  border-radius: 10px; 
+  transition: transform 0.3s ease;
+}
+.logo-img:hover {
+  transform: scale(1.05);
+}
+
+/* Connect Wallet Button */
+.btn { 
+  background: rgba(76, 175, 80, 0.85); 
+  color: #fff; 
+  font-size: 16px;
+  padding: 8px 20px; 
+  border-radius: 10px; 
+  cursor: pointer; 
+  font-weight: 600; 
+  transition: all 0.3s ease;
+  backdrop-filter: blur(6px);
+}
+.btn:hover {
+  background: rgba(56, 142, 60, 0.95); 
+  transform: translateY(-2px) scale(1.03);
+}
+.btn:disabled {
+  background: rgba(46, 125, 50, 0.7);
+  cursor: not-allowed;
+}
+
+/* 📱 Responsive Header */
+@media (max-width: 768px) {
+  .header {
+    padding: 0.6rem 5%;
+  }
+
+  .logo-img {
+    height: 45px;
+  }
+
+  .btn {
+    font-size: 14px;
+    padding: 7px 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 0.5rem 4%;
+  }
+
+  .logo-img {
+    height: 40px;
+  }
+
+  .btn {
+    font-size: 13px;
+    padding: 6px 12px;
+  }
+}
+/*---------------------------------------------*/
+.danger { 
+  background:#e53935; 
+  color:#fff; 
+}
+.danger:hover { 
+  background:#d32f2f; 
+}
+
+/*---------Section 2 : Wallet balance + User Address ------*/
+    
+  /* Wallet Info Container */
+.main-content {
+  margin-top: 120px; /* header ke neeche gap */
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+/* Wallet Card (Address) */
+.wallet-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(10px) saturate(180%);
+  -webkit-backdrop-filter: blur(10px) saturate(180%);
+  padding: 14px 24px;
+  border-radius: 14px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  font-size: 16px;
+  font-weight: 600;
+  color: #222;
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Balances Container */
+.wallet-balances {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: nowrap; /* Side by side even on mobile */
+  width: 100%;
+  max-width: 600px;
+}
+
+/* Individual Balance Card */
+.token-balance {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  padding: 14px 18px;
+  border-radius: 14px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  font-size: 16px;
+  font-weight: 600;
+  color: #111;
+  transition: transform 0.2s ease;
+  min-width: 140px;
+  flex: 1; /* Cards take equal width */
+  text-align: center;
+}
+
+.token-balance:hover {
+  transform: translateY(-3px);
+}
+
+.token-balance img {
+  width: 26px;
+  height: 26px;
+  margin-right: 10px;
+  border-radius: 50%;
+}
+
+/* 📱 Responsive tweaks */
+@media (max-width: 480px) {
+  .main-content{
+    margin-top: 70px
+  }
+  .wallet-card {
+    font-size: 12px;
+    padding: 10px 14px;
+  }
+
+  .token-balance {
+    font-size: 14px;
+    padding: 10px;
+    min-width: 120px;
+  }
+
+  .wallet-balances {
+    gap: 10px;
+  }
+}
+    /*---------Section 3 : Stake Count -------------*/
+.total-stake {
+  display: flex;
+  justify-content: center;
+  margin-top: 30px;
+  padding: 0 20px;
+}
+
+.stake-card {
+  position: relative;
+  background: rgba(30, 30, 47, 0.85);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border-radius: 18px;
+  padding: 24px 32px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  text-align: center;
+  min-width: 260px;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  overflow: hidden;
+}
+
+/* Gradient Border Effect */
+.stake-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #6d5dfc, #46c2ff, #23d5ab);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, 
+                linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.stake-card:hover {
+  transform: translateY(-5px) scale(1.01);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+}
+
+/* Title */
+.stake-card h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #aaa;
+  margin-bottom: 10px;
+  letter-spacing: 0.6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.stake-card h4 i {
+  color: #46c2ff;
+  font-size: 18px;
+}
+
+/* Value */
+.stake-card p {
+  font-size: 28px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 0 8px rgba(70, 194, 255, 0.6);
+  letter-spacing: 1px;
+}
+
+/* 📱 Responsive */
+@media (max-width: 480px) {
+  .stake-card {
+    padding: 8px 20px;
+    min-width: 250px;
+  }
+
+  .stake-card h4 {
+    font-size: 14px;
+  }
+
+  .stake-card p {
+    font-size: 22px;
+  }
+}
+
+/*--------Section 4 : Stake Card design------------*/
+/* Stake Cards Container */
+#stakeCards {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  padding: 20px;
+  padding-bottom: 100px;
+}
+
+/* Individual Stake Card */
+.card {
+  background: linear-gradient(145deg, rgba(30,30,46,0.95), rgba(25,25,35,0.9));
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 18px;
+  padding: 25px;
+  width: 95%;
+  max-width: 480px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  transition: all 0.3s ease;
+  color: #f5f5f5;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  height: 4px;
+  background: linear-gradient(90deg, #4facfe, #00f2fe, #43e97b, #38f9d7);
+  border-radius: 18px 18px 0 0;
+  animation: gradient-move 6s linear infinite;
+}
+
+@keyframes gradient-move {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+}
+
+/* Card Title */
+.card-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #ffffff;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+/* Card Text */
+.card p {
+  margin: 8px 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #cfcfcf;
+}
+
+/* Highlighted Numbers */
+.card b {
+  color: #ffffff;
+}
+.card span.token-name {
+  color: #00f2fe;
+  font-weight: 600;
+}
+
+/* Actions */
+.card-actions {
+  margin-top: 18px;
+  display: flex;
+  gap: 12px;
+}
+
+.card-actions .btn,
+.card-actions .danger {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.card-actions .btn {
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+  color: #fff;
+}
+.card-actions .btn:hover {
+  background: linear-gradient(135deg, #43e97b, #38f9d7);
+  transform: scale(1.05);
+}
+
+.card-actions .danger {
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  color: #fff;
+}
+.card-actions .danger:hover {
+  background: linear-gradient(135deg, #ff6a00, #ee0979);
+  transform: scale(1.05);
+}
+
+/* End Date */
+.card .end-date {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 13px;
+  color: #aaa;
+}
+/*--------------- Section 5 : Bottom Menu bar--------------*/
+    .bottom-menu {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 65px;
+  background: #fff;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid #ddd;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  z-index: 1000;
+}
+
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #444;
+  font-size: 12px;  /* thoda chhota font */
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  width: 60px; /* limit width so icons/text don't overflow */
+}
+
+.menu-item i {
+  font-size: 20px;
+  margin-bottom: 4px;
+  color: #5a67d8;
+}
+
+.menu-item span {
+  font-size: 10px; /* chhota text */
+  text-align: center;
+}
+
+.menu-item:hover {
+  color: #000;
+  transform: translateY(-2px);
+}
+    @media (max-width: 480px) {
+  .menu-item {
+    width: auto;
+    margin: 0 4px;
+  }
+  .menu-item span {
+    font-size: 9px;
+  }
+  .menu-item i {
+    font-size: 18px;
+  }
+    }
+  
+  /*---------Section 6 : Stake Model----------*/
+    #stakeModal {
+      position:fixed;
+      top:0; 
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.6); 
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      z-index:9999; 
+    }
+    #stakeModal .modal-content {
+      background:#1e1e2f; 
+      padding:25px;
+      border-radius:15px; 
+      width:90%;
+      max-width:400px;
+      color:#fff; 
+      text-align:center;
+      box-shadow:0 5px 20px rgba(0,0,0,0.3); 
+    }
+    #stakeModal .modal-content h2 {
+      margin-bottom:20px; 
+    }
+    #stakeModal .modal-content input {
+      padding:10px;
+      width:100%;
+      border-radius:8px; 
+      border:1px solid #444;
+      margin-bottom:20px;
+      font-size:16px; 
+      color:#333; 
+    }
+    #stakeModal .modal-buttons { 
+      display:flex; 
+      justify-content:space-between;
+      gap:10px;
+    }
+    #stakeModal .modal-buttons button {
+      flex:1 
+    }
+
+/*-----------------------------*/
+    
+</style>
 </head>
 <body>
-  <div class="card">
-    <h2>Navaraa Staking UI</h2>
-    <button id="connectButton" class="btn">Connect Wallet</button>
-    <p><b>Wallet:</b> <span id="wallet">Not connected</span></p>
-    <p><b>Stake Count:</b> <span id="stakeCount">-</span></p>
-    <p><b>Pending Reward (stake #0):</b> <span id="pendingReward">-</span></p>
+<header class="header">
+  <div class="logo-container">
+    <img src="logo.png" alt="Logo" class="logo-img" />
+  </div>
+  <button id="connectButton" class="btn">Connect Wallet</button>
+</header>
 
-    <h3>Stake Tokens</h3>
-    <input id="stakeAmount" type="text" placeholder="Enter amount to stake"/>
-    <button id="stakeBtn" class="btn">Stake</button>
-
-    <h3>Manage Staking</h3>
-    <button id="claimBtn" class="btn">Claim Reward (Stake #0)</button><br/>
-    <button id="withdrawBtn" class="danger">Withdraw Principal (Stake #0)</button>
+<div class="main-content">
+  <div class="wallet-balances" id="walletBalances"></div>
+  <div class="wallet-info">
+    <div class="wallet-card" id="wallet">Not Connected</div>
+  </div>
+</div>
+<!----new counter stake ---->
+  <div class="total-stake">
+  <div class="stake-card">
+    <h4><i class="fas fa-database"></i> Total Stakes</h4>
+    <p id="stakeCount">-</p>
+  </div>
   </div>
 
-  <script>
-    const CONTRACT_ADDRESS = "PUT_YOUR_CONTRACT_ADDRESS_HERE";
+<div id="stakeCards"></div>  <!---- USERS STAKE CARD -------->
 
-    const ABI = [
-      "function stake(uint256 amount, address referrer)",
-      "function stakeCount(address user) view returns (uint256)",
-      "function pendingRewardForStake(address user, uint256 index) view returns (uint256)",
-      "function claimStakingRewards(uint256[] calldata indices)",
-      "function withdrawPrincipal(uint256[] calldata indices)",
-      "function stakingToken() view returns (address)"
-    ];
+  <div class="bottom-menu">
+    <div class="menu-item" onclick="openStake()"><i class="fas fa-coins"></i><span>Stake Now</span></div> 
+    <div class="menu-item" onclick="openRefer()"><i class="fas fa-user-friends"></i><span>Refer</span></div>
+    <div class="menu-item" onclick="openSwap()"><i class="fas fa-exchange-alt"></i><span>Swap</span></div>
+    <div class="menu-item" onclick="openTerms()"><i class="fas fa-file-contract"></i><span>Terms</span></div>
+    <div class="menu-item" onclick="openHistory()"><i class="fas fa-receipt"></i><span>History</span></div>
+</div>
 
-    let provider, signer, contract, userAddress, tokenContract;
+  <div id="stakeModal" style="display:none;">
+  <div class="modal-content">
+    <h2>Stake Navaa</h2>
+    <p style="color:#ccc; font-size:14px;">
+      Minimum: 170000 | Maximum: 10000000
+    </p>
+    <input type="number" id="stakeAmount" placeholder="Enter amount (170000 - 10000000)" />
+    <div class="modal-buttons">
+      <button onclick="stakeNow()" class="btn">Stake Now</button>
+      <button onclick="closeStake()" class="danger">Cancel</button>
+    </div>
+  </div>
+  </div>
+  
 
-    async function connectWallet() {
-      if (!window.ethereum) {
-        alert("MetaMask not found!");
-        return;
-      }
-      provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-      signer = provider.getSigner();
-      userAddress = await signer.getAddress();
-      document.getElementById("wallet").innerText = userAddress;
+<script>
+const CONTRACT_ADDRESS = "0x9fd473975cecd4587d78eb71f4498dde778c4b83";
+const NAVAA_TOKEN = "0x23b7a4c2ec9d742b5b1698149e812ca1e10d3e73";
 
-      contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+const TOKEN_ABI = [
+  "function balanceOf(address account) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function approve(address spender, uint256 amount) returns (bool)"
+];
 
-      // Load token contract for approve
-      const tokenAddr = await contract.stakingToken();
-      const tokenAbi = [
-        "function approve(address spender, uint256 amount) public returns (bool)",
-        "function allowance(address owner, address spender) view returns (uint256)"
-      ];
-      tokenContract = new ethers.Contract(tokenAddr, tokenAbi, signer);
+const ABI = [
+  "function stakeCount(address user) view returns (uint256)",
+  "function pendingRewardForStake(address user, uint256 index) view returns (uint256)",
+  "function getStake(address user, uint256 index) view returns (uint256 amount, uint256 startTime, uint256 claimed, bool principalWithdrawn, uint256 totalReward)",
+  "function stakeTokens(uint256 amount, address referrer)",
+  "function claimStakingRewards(uint256[] calldata indices)",
+  "function withdrawPrincipal(uint256[] calldata indices)"
+];
 
-      loadInfo();
+let provider, signer, contract, userAddress;
+
+async function connectWallet() {
+  if (window.ethereum) {
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    const network = await provider.getNetwork();
+    if (network.chainId !== 137) { alert("Switch to Polygon Mainnet"); return; }
+  } else {
+    const wcProvider = new WalletConnectProvider.default({ rpc: { 137: "https://polygon-rpc.com" } });
+    await wcProvider.enable();
+    provider = new ethers.providers.Web3Provider(wcProvider);
+    const network = await provider.getNetwork();
+    if (network.chainId !== 137) { alert("Switch to Polygon Mainnet"); return; }
+  }
+  signer = provider.getSigner();
+  userAddress = await signer.getAddress();
+  document.getElementById("wallet").innerText = userAddress;
+  const connectBtn = document.getElementById("connectButton");
+  connectBtn.innerText = "Connected";
+  connectBtn.disabled = true;
+  connectBtn.style.background = "#2e7d32";
+  contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+  loadInfo();
+  await loadBalances();
+}
+
+async function loadInfo() {
+  try {
+    const count = await contract.stakeCount(userAddress);
+    document.getElementById("stakeCount").innerText = count.toString();
+    const stakeCardsContainer = document.getElementById("stakeCards");
+    stakeCardsContainer.innerHTML = "";
+    const STAKE_DURATION = 1700 * 24 * 60 * 60;
+    for (let i = 0; i < count; i++) {
+      const pending = await contract.pendingRewardForStake(userAddress, i);
+      const stakeInfo = await contract.getStake(userAddress, i);
+      const amount = stakeInfo.amount;
+      const startDate = new Date(stakeInfo.startTime.toNumber() * 1000);
+      const totalReward = stakeInfo.totalReward;
+      const endTime = new Date((stakeInfo.startTime.toNumber() + STAKE_DURATION) * 1000);
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <h3 class="card-title">Stake #${i}</h3>
+        <p><b>Staked Amount:</b> ${ethers.utils.formatEther(amount)} Navaa</p>
+        <p><b>Start Date:</b> ${startDate.toLocaleString()}</p>
+        <p><b>Total Reward:</b> ${ethers.utils.formatEther(totalReward)} Navaa</p>
+        <p><b>Pending Reward:</b> <span id="pending-${i}">${ethers.utils.formatEther(pending)}</span> <span class="token-name">Navaa</span></p>
+        <div class="card-actions">
+          <button class="btn claimBtn" data-index="${i}">Claim Reward</button>
+          <button class="danger withdrawBtn" data-index="${i}">Withdraw Principal</button>
+        </div>
+        <p><b>End Date:</b> <span id="end-${i}">${endTime.toLocaleString()}</span></p>
+      `;
+      stakeCardsContainer.appendChild(card);
+      let pendingLive = parseFloat(ethers.utils.formatEther(pending));
+      const totalRewardNum = parseFloat(ethers.utils.formatEther(totalReward));
+      const rewardRatePerSecond = totalRewardNum / STAKE_DURATION;
+      setInterval(() => { pendingLive += rewardRatePerSecond; document.getElementById(`pending-${i}`).innerText = pendingLive.toFixed(6); }, 1000);
+      document.querySelectorAll(".claimBtn").forEach(btn => { btn.onclick = () => claimReward(btn.dataset.index); });
+      document.querySelectorAll(".withdrawBtn").forEach(btn => { btn.onclick = () => withdrawPrincipal(btn.dataset.index); });
+    }
+  } catch(err){ console.error(err); alert("Error loading info: " + err.message);}
+}
+
+  async function loadBalances() {
+  if (!provider || !userAddress) return;
+  const polBalance = await provider.getBalance(userAddress);
+  const polFormatted = ethers.utils.formatEther(polBalance);
+  const navaaContract = new ethers.Contract(NAVAA_TOKEN, TOKEN_ABI, provider);
+  const navaaBalance = await navaaContract.balanceOf(userAddress);
+  const navaaDecimals = await navaaContract.decimals();
+  const navaaFormatted = ethers.utils.formatUnits(navaaBalance, navaaDecimals);
+  document.getElementById("walletBalances").innerHTML = `
+    <div class="token-balance">
+      <img src="POL.png" alt="MATIC">${parseFloat(polFormatted).toFixed(4)} POL
+    </div>
+    <div class="token-balance">
+      <img src="logo.png" alt="Navaa">${parseFloat(navaaFormatted).toFixed(4)} Navaa
+    </div>
+  `;
+  document.getElementById("wallet").innerText = userAddress;
+  }
+
+async function claimReward(index) {
+  try { const tx = await contract.claimStakingRewards([index]); alert("Claiming stake #" + index + " ... Tx: " + tx.hash); await tx.wait(); alert("Reward claimed for stake #" + index); loadInfo(); }
+  catch(err){ console.error(err); alert("Claim failed: " + (err?.reason || err?.message || "Unknown error"));}
+}
+
+async function withdrawPrincipal(index) {
+  try { const tx = await contract.withdrawPrincipal([index]); alert("Withdrawing stake #" + index + " ... Tx: " + tx.hash); await tx.wait(); alert("Principal withdrawn for stake #" + index); loadInfo(); }
+  catch(err){ console.error(err); alert("Withdraw failed: " + (err?.reason || err?.message || "Unknown error"));}
+}
+
+document.getElementById("connectButton").onclick = connectWallet;
+
+function openStake(){ document.getElementById("stakeModal").style.display="flex"; }
+function closeStake(){ document.getElementById("stakeModal").style.display="none"; }
+///////////////////////////////////////
+
+const MIN_STAKE = ethers.utils.parseUnits("170000", 18);     // 170000 Navaa
+const MAX_STAKE = ethers.utils.parseUnits("10000000", 18);   // 10000000 Navaa
+
+async function stakeNow() {
+  try {
+    const amountInput = document.getElementById("stakeAmount").value;
+
+    if (!amountInput || isNaN(amountInput) || parseFloat(amountInput) <= 0) {
+      alert("Enter a valid amount");
+      return;
     }
 
-    async function loadInfo() {
-      try {
-        const count = await contract.stakeCount(userAddress);
-        document.getElementById("stakeCount").innerText = count.toString();
+    const amount = ethers.utils.parseUnits(amountInput.toString(), 18);
 
-        if (count > 0) {
-          const pending = await contract.pendingRewardForStake(userAddress, 0);
-          document.getElementById("pendingReward").innerText = ethers.utils.formatEther(pending) + " tokens";
-        }
-      } catch (err) {
-        console.error(err);
-        alert("Error loading info");
-      }
+    // ✅ Min/Max Validation
+    if (amount.lt(MIN_STAKE)) {
+      alert("❌ Minimum stake is 170000 Navaa");
+      return;
+    }
+    if (amount.gt(MAX_STAKE)) {
+      alert("❌ Maximum stake is 10000000 Navaa");
+      return;
     }
 
-    async function stakeTokens() {
-      const amount = document.getElementById("stakeAmount").value;
-      if (!amount || isNaN(amount)) {
-        alert("Enter valid amount");
-        return;
-      }
-      const parsed = ethers.utils.parseEther(amount);
+    // ✅ Balance Check
+    const tokenContract = new ethers.Contract(NAVAA_TOKEN, TOKEN_ABI, signer);
+    const balance = await tokenContract.balanceOf(userAddress);
 
-      try {
-        // Approve first
-        const allowance = await tokenContract.allowance(userAddress, CONTRACT_ADDRESS);
-        if (allowance.lt(parsed)) {
-          let tx1 = await tokenContract.approve(CONTRACT_ADDRESS, parsed);
-          alert("Approving... Tx: " + tx1.hash);
-          await tx1.wait();
-        }
-
-        // Stake
-        const zeroAddress = "0x0000000000000000000000000000000000000000";
-        let tx2 = await contract.stake(parsed, zeroAddress);
-        alert("Staking... Tx: " + tx2.hash);
-        await tx2.wait();
-        alert("Staked successfully!");
-        loadInfo();
-      } catch (err) {
-        console.error(err);
-        alert("Stake failed: " + err.message);
-      }
+    if (balance.lt(amount)) {
+      alert("❌ You don’t have enough Navaa tokens to stake!");
+      return; // 🚨 Stop here → no approve, no gas waste
     }
 
-    async function claimReward() {
-      try {
-        const tx = await contract.claimStakingRewards([0]);
-        alert("Claiming... Tx: " + tx.hash);
-        await tx.wait();
-        alert("Reward claimed!");
-        loadInfo();
-      } catch (err) {
-        console.error(err);
-        alert("Claim failed: " + err.message);
-      }
-    }
+    // ✅ Only if balance is enough → Approve & Stake
+    const approveTx = await tokenContract.approve(CONTRACT_ADDRESS, amount);
+    alert("Approving tokens... Tx: " + approveTx.hash);
+    await approveTx.wait();
 
-    async function withdrawPrincipal() {
-      try {
-        const tx = await contract.withdrawPrincipal([0]);
-        alert("Withdrawing... Tx: " + tx.hash);
-        await tx.wait();
-        alert("Principal withdrawn!");
-        loadInfo();
-      } catch (err) {
-        console.error(err);
-        alert("Withdraw failed: " + err.message);
-      }
-    }
+    const tx = await contract.stakeTokens(amount, ethers.constants.AddressZero);
+    alert("Staking... Tx: " + tx.hash);
+    await tx.wait();
 
-    document.getElementById("connectButton").onclick = connectWallet;
-    document.getElementById("stakeBtn").onclick = stakeTokens;
-    document.getElementById("claimBtn").onclick = claimReward;
-    document.getElementById("withdrawBtn").onclick = withdrawPrincipal;
-  </script>
+    alert("✅ Stake successful!");
+    closeStake();
+    loadInfo();
+    loadBalances();
+
+  } catch (err) {
+    console.error(err);
+    alert("Stake failed: " + (err?.reason || err?.message || "Unknown error"));
+  }
+}
+///////////// History 
+  function openHistory() {
+  window.location.href = "history.html"; // ye naya page open karega
+}
+  
+function openRefer(){ alert("Refer & Earn clicked!"); }
+function openSwap(){ alert("Swap clicked!");}
+function openTerms(){ alert("T&C clicked!");}
+// function openHistory(){ alert("Claim/Withdrawal History clicked!"); }
+</script>
 </body>
 </html>
